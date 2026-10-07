@@ -1,0 +1,93 @@
+# Coffee machine simulator configuration
+# All durations are expressed either in seconds (simulated time) or in
+# "ticks" (one tick = one sample_interval_seconds).
+
+device_id: coffee-machine-01
+
+serial:
+  port: null          # e.g. "/dev/ttyUSB0" or "/dev/serial0". null = print to stdout (useful for testing without hardware)
+  baudrate: 115200
+
+sample_interval_seconds: 2
+random_seed: 42        # set to null for a different random run each time
+
+baseline:
+  ambient_temp_c: 22.0
+  target_temp_c: 94.0        # normal brewing temperature setpoint
+  temp_noise_c: 0.3          # +/- noise around setpoint once heated
+  warmup_rate_c_per_tick: 3.0
+  cooling_rate_c_per_tick: 1.5   # how fast temperature drops toward ambient while off/booting
+
+  off_power_mw: 150          # control board kept alive, heater off (off / booting)
+  idle_power_mw: 3000        # standby / updating - heater not actively driven
+  heating_power_mw: 1400000  # heater element active (preheat, and maintained during brewing)
+  brewing_power_mw: 60000    # pump, added on top of heating_power_mw while brewing
+  power_noise_mw: 500
+
+  heap_baseline_bytes: 50000
+  heap_brew_alloc_bytes: 2000   # allocated during brewing, freed after (normal sawtooth)
+  heap_noise_bytes: 200
+
+# --- Machine lifecycle -----------------------------------------------------
+# off -> booting -> preheat -> standby <-> brewing
+#                      ^                      |
+#                      |                      v
+#                   booting <----------- updating
+#                      ^
+#                      |
+#               standby -> off (occasional power-off cycle, optional)
+lifecycle:
+  boot_duration_seconds: 8
+  preheat_max_seconds: 90          # safety cap in case target is never reached
+
+  brewing_duration_seconds: 25
+  standby_before_brew_seconds_min: 60
+  standby_before_brew_seconds_max: 300
+
+  update_duration_seconds: 150     # must exceed memory_leak_fota.leak_trigger_after_seconds
+                                    # for the leak to reliably occur on every update
+  standby_before_update_seconds_min: 600    # a simulated firmware update fires roughly every 10-15 min
+  standby_before_update_seconds_max: 900
+
+  simulate_power_off: true         # occasional eco/power-off cycle; set false to disable entirely
+  standby_before_off_seconds_min: 1200      # roughly every 20-30 min of standby time
+  standby_before_off_seconds_max: 1800
+  off_duration_seconds_min: 120
+  off_duration_seconds_max: 300
+
+# --- Fault scenarios ---------------------------------------------------
+# error_code is a bitfield (see scenarios.py for the bit assignment table).
+# Multiple scenarios can be active at the same time; their bits are OR-ed together.
+
+thermal_runaway:
+  enabled: true
+  trigger_probability_per_tick: 0.0015   # chance to start a runaway on any given tick (when not already active)
+  climb_rate_c_per_tick: 1.5             # how fast temperature climbs once triggered
+  warn_temp_c: 102.0                     # crossing this => status "degraded" (early warning)
+  critical_temp_c: 112.0                 # crossing this => status "error" (overheat bit set), then reboot
+  error_duration_ticks: 3
+
+memory_leak_fota:
+  enabled: true
+  leak_trigger_after_seconds: 80         # 1 minute 20 seconds spent in "updating" before the leak fires
+  leak_amount_bytes: 8000                # heap that fails to be reclaimed each time the leak fires
+  warn_free_bytes: 15000                 # below this => status "degraded"
+  critical_free_bytes: 5000              # below this => status "error" (out_of_memory bit set), then reboot
+  error_duration_ticks: 3
+
+intermittent_errors:
+  enabled: true
+  trigger_probability_per_tick: 0.05     # chance to start a short burst on any given tick WHILE brewing
+  duration_ticks_min: 1
+  duration_ticks_max: 3
+  # relative weights for which fault fires when a burst is triggered
+  bit_weights:
+    capsule_jam: 1.0
+    no_water: 1.0
+    no_capsule: 1.0
+
+silent_device:
+  enabled: false                          # stretch scenario - off by default
+  trigger_probability_per_tick: 0.0005
+  duration_seconds_min: 30
+  duration_seconds_max: 120

@@ -1,0 +1,20 @@
+[project]
+name = "simulator"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Aydong", email = "coudray@nathan.ch" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "pyserial>=3.5",
+    "pyyaml>=6.0.3",
+]
+
+[project.scripts]
+simulator = "simulator:main"
+
+[build-system]
+requires = ["uv_build>=0.12.23,<0.13.0"]
+build-backend = "uv_build"

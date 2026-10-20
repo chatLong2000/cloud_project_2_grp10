@@ -1,0 +1,21 @@
+[project]
+name = "iotcore"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Aydong", email = "coudray@nathan.ch" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "boto3>=1.35",
+    "jupyterlab>=4.2",
+    "paho-mqtt==2.1.0",
+]
+
+[project.scripts]
+iotcore = "iotcore:main"
+
+[build-system]
+requires = ["uv_build>=0.13.1,<0.14.0"]
+build-backend = "uv_build"

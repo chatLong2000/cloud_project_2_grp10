@@ -1,0 +1,33 @@
+# The MQTT broker runs as a separate service: set MQTT_URL (e.g. in a .env
+# file next to this compose file) to point the edge at it.
+services:
+  edge:
+    build: ./edge
+    environment:
+      NUM_DEVICES: ${NUM_DEVICES:-5}
+      MQTT_URL: ${MQTT_URL:?set MQTT_URL, e.g. mqtt://host.docker.internal:1883}
+      MQTT_USERNAME: ${MQTT_USERNAME:-}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:-}
+      MQTT_CLIENT_ID: ${MQTT_CLIENT_ID:-edge-01}
+      BATCH_INTERVAL_S: ${BATCH_INTERVAL_S:-15}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./certs:/certs:ro
+      - edge-data:/data
+    restart: unless-stopped
+
+  devices:
+    build: ./simulator
+    depends_on:
+      - edge
+    environment:
+      NUM_DEVICES: ${NUM_DEVICES:-5}
+      EDGE_HOST: edge
+    volumes:
+      - ground-truth:/data
+    restart: unless-stopped
+
+volumes:
+  edge-data:
+  ground-truth:

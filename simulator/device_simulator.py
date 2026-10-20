@@ -298,9 +298,19 @@ def main():
     parser.add_argument(
         "--ground-truth", default="ground_truth.log", help="Path to instructor ground-truth log"
     )
+    # Optional overrides, so several devices can share one config.yaml.
+    parser.add_argument("--device-id", help="Override device_id")
+    parser.add_argument("--serial-port", help="Override serial.port")
+    parser.add_argument("--seed", type=int, help="Override random_seed")
     args = parser.parse_args()
 
     cfg = load_config(args.config)
+    if args.device_id:
+        cfg["device_id"] = args.device_id
+    if args.serial_port:
+        cfg["serial"]["port"] = args.serial_port
+    if args.seed is not None:
+        cfg["random_seed"] = args.seed
     ground_truth = GroundTruthLogger(args.ground_truth)
     simulator = DeviceSimulator(cfg, ground_truth)
     writer = SerialWriter(cfg["serial"]["port"], cfg["serial"]["baudrate"])

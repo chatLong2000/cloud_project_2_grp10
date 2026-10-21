@@ -9,6 +9,8 @@ devices (5 simulateurs)  --UART pty/socat, CSV-->  edge  --MQTT (QoS 1)-->  brok
 | `devices` | `simulator/` | 5 × `device_simulator.py`, chacun écrit sur un pty `socat` relié en TCP à l'edge (ports 5001-5005) |
 | `edge` | `edge/` | `socat` recrée un pty par machine ; `edge.py` lit les ports série, valide le CSV, bufferise dans SQLite (`/data/buffer.db`) et publie un lot JSON par machine toutes les 10 s sur `coffee/<device_id>/batch` |
 
+Côté cloud, l'analyse des scénarios et le dashboard sont développés d'abord en local, sur un rejeu des lots de l'edge : voir `AWS/Analyser/README.md` (détecteurs, API, notebooks) et `AWS/Grafana/README.md` (Grafana OSS + Infinity, `docker compose -f AWS/Grafana/docker-compose.local.yml up`).
+
 ## Lancement
 
 Le broker MQTT tourne dans un autre service ; l'edge s'y connecte via `MQTT_URL`.

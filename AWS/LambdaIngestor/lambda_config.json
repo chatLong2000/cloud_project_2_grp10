@@ -1,0 +1,9 @@
+{
+  "region": "us-east-1",
+  "lambda_name": "GRP10-SdatawayLambdaIngestor",
+  "lambda_arn": "arn:aws:lambda:us-east-1:352909266144:function:GRP10-SdatawayLambdaIngestor",
+  "iot_rule_name": "SdatawayIngestRule",
+  "iot_rule_arn": "arn:aws:iot:us-east-1:352909266144:rule/SdatawayIngestRule",
+  "mqtt_topic_filter": "coffee-GRP10/+/batch",
+  "log_group_name": "/aws/lambda/GRP10-SdatawayLambdaIngestor"
+}

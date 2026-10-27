@@ -1,0 +1,9 @@
+{
+  "region": "us-east-1",
+  "database_name": "SdatawayIoTDB",
+  "database_arn": "arn:aws:timestream:us-east-1:352909266144:database/SdatawayIoTDB",
+  "table_telemetry_name": "telemetry",
+  "table_telemetry_arn": "arn:aws:timestream:us-east-1:352909266144:database/SdatawayIoTDB/table/telemetry",
+  "table_alerts_name": "alerts",
+  "table_alerts_arn": "arn:aws:timestream:us-east-1:352909266144:database/SdatawayIoTDB/table/alerts"
+}

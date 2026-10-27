@@ -6,6 +6,7 @@ set -eu
 
 NUM_DEVICES="${NUM_DEVICES:-5}"
 EDGE_HOST="${EDGE_HOST:-edge}"
+DEVICE_PREFIX="${DEVICE_PREFIX:-coffee-machine}"
 mkdir -p /data /tmp/tty
 
 for i in $(seq 1 "$NUM_DEVICES"); do
@@ -18,7 +19,7 @@ for i in $(seq 1 "$NUM_DEVICES"); do
     while [ ! -e "$tty" ]; do sleep 0.2; done
 
     python3 device_simulator.py \
-        --device-id "$(printf 'coffee-machine-%02d' "$i")" \
+        --device-id "$(printf '%s-%02d' "$DEVICE_PREFIX" "$i")" \
         --serial-port "$tty" \
         --seed "$i" \
         --ground-truth "/data/ground_truth_$i.log" &

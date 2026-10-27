@@ -9,8 +9,9 @@ services:
       MQTT_USERNAME: ${MQTT_USERNAME:-}
       MQTT_PASSWORD: ${MQTT_PASSWORD:-}
       MQTT_CLIENT_ID: ${MQTT_CLIENT_ID:-edge-01}
+      MQTT_TOPIC_PREFIX: ${MQTT_TOPIC_PREFIX:-coffee-GRP10}
       BATCH_INTERVAL_S: ${BATCH_INTERVAL_S:-15}
-      BATCH_MAX_ROWS: ${BATCH_MAX_ROWS:-500}
+      BATCH_MAX_ROWS: ${BATCH_MAX_ROWS:-400}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
@@ -25,6 +26,7 @@ services:
     environment:
       NUM_DEVICES: ${NUM_DEVICES:-5}
       EDGE_HOST: edge
+      DEVICE_PREFIX: ${DEVICE_PREFIX:-coffee-machine}
     volumes:
       - ground-truth:/data
     restart: unless-stopped

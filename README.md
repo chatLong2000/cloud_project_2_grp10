@@ -35,6 +35,6 @@ Le broker MQTT tourne dans un autre service ; l'edge s'y connecte via `MQTT_URL`
 - **Sondes muettes** : non détectées par l'edge, la détection se fera côté cloud à partir des lots reçus.
 - **Store and forward** : les lignes ne sont supprimées de SQLite qu'après le PUBACK du broker, rien n'est perdu si le broker est injoignable.
 
-Variables utiles (voir `docker-compose.yml` et `Settings` dans `edge/edge.py`) : `NUM_DEVICES`, `BATCH_INTERVAL_S`, `MQTT_URL`, `MQTT_USERNAME`, `MQTT_PASSWORD`, `MQTT_CLIENT_ID`, `MQTT_CA`, `MQTT_CERT`, `MQTT_KEY`, `MQTT_TOPIC_PREFIX`.
+Variables utiles (voir `docker-compose.yml` et `Settings` dans `edge/edge.py`) : `NUM_DEVICES`, `DEVICE_PREFIX` (noms des machines, `coffee-machine` par défaut), `BATCH_INTERVAL_S`, `MQTT_URL`, `MQTT_USERNAME`, `MQTT_PASSWORD`, `MQTT_CLIENT_ID`, `MQTT_CA`, `MQTT_CERT`, `MQTT_KEY`, `MQTT_TOPIC_PREFIX`.
 
 Les logs ground truth des simulateurs sont écrits dans le volume `ground-truth` (`/data/ground_truth_<n>.log`).

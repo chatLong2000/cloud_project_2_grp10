@@ -9,9 +9,10 @@ Edge gateway for the coffee machine fleet.
 - Silent devices are not detected here: the cloud does it from the
   received batches.
 - A publisher thread sends the buffer every BATCH_INTERVAL_S as one JSON
-  batch per device, over MQTT/TLS (X.509 client cert, QoS 1). Rows are only
-  deleted once the broker acknowledged them, so nothing is lost while the
-  broker is unreachable (store and forward).
+  batch per device (at most BATCH_MAX_ROWS readings each, to stay under the
+  128 KB IoT Core message limit), over MQTT/TLS (X.509 client cert, QoS 1).
+  Rows are only deleted once the broker acknowledged them, so nothing is
+  lost while the broker is unreachable (store and forward).
 
 All settings come from environment variables (see Settings).
 """
@@ -58,7 +59,7 @@ class Settings:
     baudrate: int = int(os.environ.get("BAUDRATE", "115200"))
     db_path: str = os.environ.get("DB_PATH", "/data/buffer.db")
     batch_interval_s: float = float(os.environ.get("BATCH_INTERVAL_S", "10"))
-    batch_max_rows: int = int(os.environ.get("BATCH_MAX_ROWS", "1000"))
+    batch_max_rows: int = int(os.environ.get("BATCH_MAX_ROWS", "400"))  # per device
     mqtt_url: str = os.environ.get("MQTT_URL", "mqtt://localhost:1883")
     mqtt_username: str = os.environ.get("MQTT_USERNAME", "")
     mqtt_password: str = os.environ.get("MQTT_PASSWORD", "")
@@ -77,6 +78,7 @@ CREATE TABLE IF NOT EXISTS readings (
     device_id TEXT NOT NULL,
     payload TEXT NOT NULL
 );
+CREATE INDEX IF NOT EXISTS readings_device ON readings (device_id, id);
 """
 
 
@@ -248,7 +250,14 @@ class Publisher:
     def _flush(self, db):
         s = self.settings
         readings = db.execute(
-            "SELECT id, device_id, payload FROM readings ORDER BY id LIMIT ?", (s.batch_max_rows,)
+            """
+            SELECT id, device_id, payload FROM (
+                SELECT id, device_id, payload,
+                       ROW_NUMBER() OVER (PARTITION BY device_id ORDER BY id) AS n
+                FROM readings
+            ) WHERE n <= ? ORDER BY id
+            """,
+            (s.batch_max_rows,),
         ).fetchall()
 
         by_device = {}

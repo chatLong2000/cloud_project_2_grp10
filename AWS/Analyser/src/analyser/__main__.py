@@ -15,7 +15,7 @@ import sys
 
 import uvicorn
 
-from analyser.alerts import AlertSink, JsonlAlertSink, LogAlertSink
+from analyser.alerts import AlertSink, JsonlAlertSink, LogAlertSink, SnsAlertSink, TimestreamAlertSink
 from analyser.api import AnalyserService, create_app
 from analyser.config import ConfigError, Settings, SourceKind
 from analyser.source import FileReplaySource, TelemetrySource
@@ -49,6 +49,23 @@ def build_service(settings: Settings) -> AnalyserService:
     sinks: list[AlertSink] = [LogAlertSink()]
     if settings.alerts_path:
         sinks.append(JsonlAlertSink(settings.alerts_path))
+    if settings.source is SourceKind.TIMESTREAM and settings.timestream_write_alerts:
+        sinks.append(
+            TimestreamAlertSink(
+                database=settings.timestream_database,
+                table=settings.timestream_alerts_table,
+                region=settings.timestream_region,
+            )
+        )
+    if settings.sns_topic_arn:
+        sinks.append(
+            SnsAlertSink(
+                settings.sns_topic_arn,
+                region=settings.timestream_region,
+                notify_resolved=settings.sns_notify_resolved,
+                min_severity=settings.sns_min_severity,
+            )
+        )
     return AnalyserService(source, settings, sinks)
 
 

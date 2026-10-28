@@ -15,10 +15,10 @@ import logging
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 from analyser.detectors import Detection
-from analyser.models import Alert, AlertEvent, AlertEventKind, AlertState, Scenario
+from analyser.models import Alert, AlertEvent, AlertEventKind, AlertState, Scenario, Severity
 
 log = logging.getLogger("analyser.alerts")
 
@@ -97,6 +97,129 @@ class JsonlAlertSink:
     def publish(self, event: AlertEvent) -> None:
         with self._path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(event.model_dump(mode="json")) + "\n")
+
+
+class SnsAlertSink:
+    """
+    Publishes alert events to an Amazon SNS topic.
+
+    Attaches MessageAttributes for server-side subscription filtering
+    (e.g. by severity, scenario, or event kind) and trims subjects to 100 chars.
+    """
+
+    def __init__(
+        self,
+        topic_arn: str,
+        region: str = "us-east-1",
+        client: Any = None,
+        notify_resolved: bool = True,
+        min_severity: Severity = Severity.WARNING,
+    ):
+        self._topic_arn = topic_arn
+        self._region = region
+        if client is None:
+            import boto3
+
+            self._client = boto3.client("sns", region_name=region)
+        else:
+            self._client = client
+        self._notify_resolved = notify_resolved
+        self._min_severity = min_severity
+
+    def publish(self, event: AlertEvent) -> None:
+        a = event.alert
+        if event.kind is AlertEventKind.RESOLVED and not self._notify_resolved:
+            return
+        if event.kind is not AlertEventKind.RESOLVED and a.severity.rank < self._min_severity.rank:
+            return
+
+        prefix = f"[SDATAWAY - {event.kind.value.upper()}]"
+        subject = f"{prefix} {a.severity.value.upper()}: {a.scenario.value} on {a.device_id}"
+        if len(subject) > 100:
+            subject = subject[:97] + "..."
+
+        body = (
+            f"=== SDATAWAY ALERT EVENT: {event.kind.value.upper()} ===\n\n"
+            f"Device ID   : {a.device_id}\n"
+            f"Scenario    : {a.scenario.value}\n"
+            f"Severity    : {a.severity.value.upper()}\n"
+            f"State       : {a.state.value}\n"
+            f"Message     : {a.message}\n"
+            f"Alert ID    : {a.alert_id}\n\n"
+            f"Event Payload:\n{json.dumps(event.model_dump(mode='json'), indent=2)}\n"
+        )
+
+        attributes = {
+            "severity": {"DataType": "String", "StringValue": a.severity.value},
+            "scenario": {"DataType": "String", "StringValue": a.scenario.value},
+            "device_id": {"DataType": "String", "StringValue": a.device_id},
+            "event_kind": {"DataType": "String", "StringValue": event.kind.value},
+        }
+
+        self._client.publish(
+            TopicArn=self._topic_arn,
+            Subject=subject,
+            Message=body,
+            MessageAttributes=attributes,
+        )
+
+
+class TimestreamAlertSink:
+    """
+    Persists alert events to the Amazon Timestream 'alerts' table using Multi-Measure records.
+    """
+
+    def __init__(
+        self,
+        database: str,
+        table: str,
+        region: str = "us-east-1",
+        client: Any = None,
+    ):
+        self._database = database
+        self._table = table
+        self._region = region
+        if client is None:
+            import boto3
+
+            self._client = boto3.client("timestream-write", region_name=region)
+        else:
+            self._client = client
+
+    def publish(self, event: AlertEvent) -> None:
+        a = event.alert
+        record = {
+            "Dimensions": [
+                {"Name": "device_id", "Value": str(a.device_id)},
+                {"Name": "scenario", "Value": str(a.scenario.value)},
+                {"Name": "severity", "Value": str(a.severity.value)},
+                {"Name": "state", "Value": str(a.state.value)},
+                {"Name": "event_kind", "Value": str(event.kind.value)},
+            ],
+            "MeasureName": "alert_event",
+            "MeasureValueType": "MULTI",
+            "Time": str(a.updated_at),
+            "TimeUnit": "MILLISECONDS",
+            "MeasureValues": [
+                {"Name": "alert_id", "Value": str(a.alert_id), "Type": "VARCHAR"},
+                {"Name": "message", "Value": str(a.message or ""), "Type": "VARCHAR"},
+                {"Name": "severity_rank", "Value": str(a.severity.rank), "Type": "BIGINT"},
+                {"Name": "opened_at", "Value": str(a.opened_at), "Type": "BIGINT"},
+                {"Name": "resolved_at", "Value": str(a.resolved_at or 0), "Type": "BIGINT"},
+            ],
+        }
+        try:
+            self._client.write_records(
+                DatabaseName=self._database,
+                TableName=self._table,
+                Records=[record],
+            )
+        except Exception as exc:
+            reasons = getattr(exc, "response", {}).get("RejectedRecords", [])
+            if reasons:
+                for r in reasons:
+                    log.error("timestream alert record rejected: %s", r.get("Reason"))
+            raise
 
 
 def publish_all(sinks: Iterable[AlertSink], events: Iterable[AlertEvent]) -> None:

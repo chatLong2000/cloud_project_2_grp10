@@ -69,6 +69,7 @@ class VmConfig:
     bundle_key: str = "bundle/app.tar.gz"
     timestream_database: str = "SdatawayIoTDB"  # written by the Ingestor Lambda, read by the Analyser
     timestream_table: str = "telemetry"
+    timestream_alerts_table: str = "alerts"
     grafana_cidrs: tuple[str, ...] = ()  # IPv4 sources allowed on Grafana's public port; empty: SSM tunnel only
 
     @property
@@ -80,6 +81,13 @@ class VmConfig:
         return (
             f"arn:aws:timestream:{self.region}:{self.account_id}"
             f":database/{self.timestream_database}/table/{self.timestream_table}"
+        )
+
+    @property
+    def timestream_alerts_table_arn(self) -> str:
+        return (
+            f"arn:aws:timestream:{self.region}:{self.account_id}"
+            f":database/{self.timestream_database}/table/{self.timestream_alerts_table}"
         )
 
     @property
@@ -225,8 +233,10 @@ def _inline_policy(cfg: VmConfig) -> dict:
             {"Effect": "Allow", "Action": "s3:GetObject", "Resource": f"arn:aws:s3:::{cfg.bucket}/{cfg.bundle_key}"},
             {"Effect": "Allow", "Action": "ssm:GetParameter", "Resource": cfg.parameter_arn},
             {"Effect": "Allow", "Action": "timestream:Select", "Resource": cfg.timestream_table_arn},
+            {"Effect": "Allow", "Action": "timestream:WriteRecords", "Resource": cfg.timestream_alerts_table_arn},
             # The Timestream SDK discovers its endpoint first; this action cannot be scoped to a resource.
             {"Effect": "Allow", "Action": "timestream:DescribeEndpoints", "Resource": "*"},
+            {"Effect": "Allow", "Action": "sns:Publish", "Resource": f"arn:aws:sns:{cfg.region}:{cfg.account_id}:*"},
         ],
     }
 

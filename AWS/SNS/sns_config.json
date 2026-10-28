@@ -1,0 +1,8 @@
+{
+  "region": "us-east-1",
+  "topic_name": "GRP10-SdatawayAlertsTopic",
+  "topic_arn": "arn:aws:sns:us-east-1:352909266144:GRP10-SdatawayAlertsTopic",
+  "alert_emails": [
+    "basile.gasser@hes-so.ch"
+  ]
+}

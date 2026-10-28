@@ -62,6 +62,7 @@ _PATTERNS = {
     "sha256": r"[0-9a-f]{64}",
     "account_id": r"\d{12}",
     "analyser_source": r"file|timestream",
+    "sns_topic_arn": r"arn:aws:sns:[a-z0-9-]+:\d{12}:[A-Za-z0-9_.-]+",
 }
 
 
@@ -104,12 +105,14 @@ def deploy_commands(
     restart_replay: bool = False,
     analyser_source: str = "timestream",
     public: bool = False,
+    sns_topic_arn: str = "",
 ) -> list[str]:
     """
     `sha256` of the uploaded bundle: a bundle replaced in S3 after the upload is refused.
     `analyser_source`: "timestream" (the AWS table) or "file" (the replay shipped in the bundle).
     `public`: Grafana listens on every interface (reachable through the security group's
     public port) instead of the loopback only (SSM tunnel).
+    `sns_topic_arn`: optional Amazon SNS topic ARN for alert delivery.
     """
     bucket, key, sha256 = _checked("bucket", bucket), _checked("key", key), _checked("sha256", sha256)
     account_id, region = _checked("account_id", account_id), _checked("region", region)
@@ -137,12 +140,16 @@ def deploy_commands(
         "unset password",
         f"echo ANALYSER_SOURCE={analyser_source} >> {staging}/AWS/Grafana/.env",
         f"echo GRAFANA_BIND={grafana_bind} >> {staging}/AWS/Grafana/.env",
+    ]
+    if sns_topic_arn:
+        commands.append(f"echo ANALYSER_SNS_TOPIC_ARN={_checked('sns_topic_arn', sns_topic_arn)} >> {staging}/AWS/Grafana/.env")
+    commands.extend([
         # Synced in place, not swapped: the containers' bind mounts keep pointing at live directories.
         f"rsync -a --delete {staging}/ {APP_DIR}/ && rm -rf {staging}",
         f"cd {GRAFANA_DIR}",
         f"{COMPOSE} up -d --build",
         f"{COMPOSE} up -d --force-recreate --no-deps grafana",  # reloads provisioning (data source, dashboards)
-    ]
+    ])
     if restart_replay:
         commands.append(f"{COMPOSE} up -d --force-recreate --no-deps analyser")
     return commands

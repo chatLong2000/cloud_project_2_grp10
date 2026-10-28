@@ -106,6 +106,7 @@ def deploy_commands(
     analyser_source: str = "timestream",
     public: bool = False,
     sns_topic_arn: str = "",
+    cloudwatch_enabled: bool = True,
 ) -> list[str]:
     """
     `sha256` of the uploaded bundle: a bundle replaced in S3 after the upload is refused.
@@ -113,6 +114,7 @@ def deploy_commands(
     `public`: Grafana listens on every interface (reachable through the security group's
     public port) instead of the loopback only (SSM tunnel).
     `sns_topic_arn`: optional Amazon SNS topic ARN for alert delivery.
+    `cloudwatch_enabled`: forward logs to CloudWatch with 1-year retention.
     """
     bucket, key, sha256 = _checked("bucket", bucket), _checked("key", key), _checked("sha256", sha256)
     account_id, region = _checked("account_id", account_id), _checked("region", region)
@@ -140,6 +142,7 @@ def deploy_commands(
         "unset password",
         f"echo ANALYSER_SOURCE={analyser_source} >> {staging}/AWS/Grafana/.env",
         f"echo GRAFANA_BIND={grafana_bind} >> {staging}/AWS/Grafana/.env",
+        f"echo ANALYSER_CLOUDWATCH_ENABLED={'true' if cloudwatch_enabled else 'false'} >> {staging}/AWS/Grafana/.env",
     ]
     if sns_topic_arn:
         commands.append(f"echo ANALYSER_SNS_TOPIC_ARN={_checked('sns_topic_arn', sns_topic_arn)} >> {staging}/AWS/Grafana/.env")

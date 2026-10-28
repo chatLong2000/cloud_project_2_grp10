@@ -32,6 +32,9 @@ Notebooks d'exploration et de réglage des seuils : `cd notebooks && uv run jupy
 |---|---|---|
 | `ANALYSER_SOURCE` | `file` | `file` (rejeu) ou `timestream` |
 | `ANALYSER_REPLAY_PATH` | (obligatoire si `file`) | Fichier `batches.jsonl` |
+| `ANALYSER_CLOUDWATCH_ENABLED` | `true` si timestream, `false` si file | Active l'envoi asynchrone des logs applicatifs vers CloudWatch Logs |
+| `ANALYSER_CLOUDWATCH_LOG_GROUP` | `/aws/analyser/GRP10-ScenarioAnalyzer` | Nom du groupe de logs CloudWatch |
+| `ANALYSER_CLOUDWATCH_RETENTION_DAYS` | `365` | Durée de rétention des logs (1 an) |
 
 Toutes les autres variables `ANALYSER_*` (Timestream, seuils, API) ont des valeurs par défaut : voir `src/analyser/config.py`.
 

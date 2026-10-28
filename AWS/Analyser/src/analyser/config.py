@@ -140,6 +140,11 @@ class Settings:
     sns_min_severity: Severity = Severity.WARNING
     api_host: str = "127.0.0.1"  # the container image sets 0.0.0.0
     api_port: int = 8_000
+    cloudwatch_enabled: bool = False
+    cloudwatch_log_group: str = "/aws/analyser/GRP10-ScenarioAnalyzer"
+    cloudwatch_log_stream: str | None = None
+    cloudwatch_retention_days: int = 365
+    cloudwatch_region: str = "us-east-1"
     thresholds: Thresholds = field(default_factory=Thresholds)
 
     @classmethod
@@ -155,6 +160,18 @@ class Settings:
         if source is SourceKind.FILE and not replay_path:
             raise ConfigError(f"{PREFIX}REPLAY_PATH is required (path to a batches.jsonl file)")
 
+        cw_enabled_raw = env.get(PREFIX + "CLOUDWATCH_ENABLED")
+        if cw_enabled_raw is not None:
+            cloudwatch_enabled = cw_enabled_raw.lower() in ("1", "true", "yes")
+        else:
+            cloudwatch_enabled = source is SourceKind.TIMESTREAM
+
+        timestream_region = env.get(PREFIX + "TIMESTREAM_REGION", "").strip() or cls.timestream_region
+        cloudwatch_region = (
+            env.get(PREFIX + "CLOUDWATCH_REGION", "").strip()
+            or timestream_region
+        )
+
         return cls(
             replay_path=replay_path,
             source=source,
@@ -162,7 +179,7 @@ class Settings:
             timestream_table=get("TIMESTREAM_TABLE", _timestream_name, cls.timestream_table),
             timestream_alerts_table=get("TIMESTREAM_ALERTS_TABLE", _timestream_name, cls.timestream_alerts_table),
             timestream_write_alerts=env.get(PREFIX + "TIMESTREAM_WRITE_ALERTS", "true").lower() in ("1", "true", "yes"),
-            timestream_region=env.get(PREFIX + "TIMESTREAM_REGION", "").strip() or cls.timestream_region,
+            timestream_region=timestream_region,
             timestream_lookback_s=get("TIMESTREAM_LOOKBACK_S", _positive_float, cls.timestream_lookback_s),
             timestream_backfill_s=get("TIMESTREAM_BACKFILL_S", _positive_float, cls.timestream_backfill_s),
             replay_mode=get("REPLAY_MODE", _replay_mode, ReplayMode.INSTANT),
@@ -177,5 +194,10 @@ class Settings:
             sns_min_severity=get("SNS_MIN_SEVERITY", _severity, Severity.WARNING),
             api_host=env.get(PREFIX + "API_HOST", "127.0.0.1"),
             api_port=get("API_PORT", _positive_int, 8_000),
+            cloudwatch_enabled=cloudwatch_enabled,
+            cloudwatch_log_group=env.get(PREFIX + "CLOUDWATCH_LOG_GROUP", "").strip() or cls.cloudwatch_log_group,
+            cloudwatch_log_stream=env.get(PREFIX + "CLOUDWATCH_LOG_STREAM", "").strip() or None,
+            cloudwatch_retention_days=get("CLOUDWATCH_RETENTION_DAYS", _positive_int, cls.cloudwatch_retention_days),
+            cloudwatch_region=cloudwatch_region,
             thresholds=Thresholds.from_env(env),
         )

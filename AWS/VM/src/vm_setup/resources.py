@@ -237,6 +237,18 @@ def _inline_policy(cfg: VmConfig) -> dict:
             # The Timestream SDK discovers its endpoint first; this action cannot be scoped to a resource.
             {"Effect": "Allow", "Action": "timestream:DescribeEndpoints", "Resource": "*"},
             {"Effect": "Allow", "Action": "sns:Publish", "Resource": f"arn:aws:sns:{cfg.region}:{cfg.account_id}:*"},
+            {
+                "Effect": "Allow",
+                "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents",
+                    "logs:DescribeLogStreams",
+                    "logs:DescribeLogGroups",
+                    "logs:PutRetentionPolicy",
+                ],
+                "Resource": f"arn:aws:logs:{cfg.region}:{cfg.account_id}:*",
+            },
         ],
     }
 

@@ -17,6 +17,7 @@ import uvicorn
 
 from analyser.alerts import AlertSink, JsonlAlertSink, LogAlertSink, SnsAlertSink, TimestreamAlertSink
 from analyser.api import AnalyserService, create_app
+from analyser.cloudwatch import CloudWatchLogsHandler
 from analyser.config import ConfigError, Settings, SourceKind
 from analyser.source import FileReplaySource, TelemetrySource
 from analyser.timestream import TimestreamSource, query_client
@@ -77,6 +78,22 @@ def main() -> None:
     logging.basicConfig(level=log_level, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     try:
         settings = Settings.from_env()
+        if settings.cloudwatch_enabled:
+            cw_handler = CloudWatchLogsHandler(
+                log_group_name=settings.cloudwatch_log_group,
+                log_stream_name=settings.cloudwatch_log_stream,
+                region=settings.cloudwatch_region,
+                retention_days=settings.cloudwatch_retention_days,
+            )
+            cw_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+            cw_handler.setLevel(log_level)
+            logging.getLogger().addHandler(cw_handler)
+            log.info(
+                "cloudwatch logging enabled: group=%s retention=%dj region=%s",
+                settings.cloudwatch_log_group,
+                settings.cloudwatch_retention_days,
+                settings.cloudwatch_region,
+            )
         service = build_service(settings)
     except (ConfigError, OSError, ValueError) as exc:  # bad settings, unreadable replay or alerts path
         log.error("cannot start analyser: %s", exc)

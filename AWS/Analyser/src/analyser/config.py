@@ -13,6 +13,8 @@ from dataclasses import dataclass, field, fields
 from enum import StrEnum
 from typing import Any, TypeVar
 
+from analyser.models import Severity
+
 T = TypeVar("T")
 E = TypeVar("E", bound=StrEnum)
 
@@ -77,6 +79,7 @@ def _choice(enum: type[E]) -> Callable[[str, str], E]:
 
 _replay_mode = _choice(ReplayMode)
 _source_kind = _choice(SourceKind)
+_severity = _choice(Severity)
 
 
 def _timestream_name(name: str, raw: str) -> str:
@@ -120,6 +123,8 @@ class Settings:
     source: SourceKind = SourceKind.FILE
     timestream_database: str = "SdatawayIoTDB"
     timestream_table: str = "telemetry"
+    timestream_alerts_table: str = "alerts"
+    timestream_write_alerts: bool = True
     timestream_region: str = "us-east-1"
     timestream_lookback_s: float = 600.0  # the edge can deliver a batch up to ~5 min late
     timestream_backfill_s: float = 900.0  # history read on the first fetch, after a (re)start
@@ -130,6 +135,9 @@ class Settings:
     max_alerts: int = 1_000
     max_query_range_s: float = 86_400.0
     alerts_path: str | None = None
+    sns_topic_arn: str | None = None
+    sns_notify_resolved: bool = True
+    sns_min_severity: Severity = Severity.WARNING
     api_host: str = "127.0.0.1"  # the container image sets 0.0.0.0
     api_port: int = 8_000
     thresholds: Thresholds = field(default_factory=Thresholds)
@@ -152,6 +160,8 @@ class Settings:
             source=source,
             timestream_database=get("TIMESTREAM_DATABASE", _timestream_name, cls.timestream_database),
             timestream_table=get("TIMESTREAM_TABLE", _timestream_name, cls.timestream_table),
+            timestream_alerts_table=get("TIMESTREAM_ALERTS_TABLE", _timestream_name, cls.timestream_alerts_table),
+            timestream_write_alerts=env.get(PREFIX + "TIMESTREAM_WRITE_ALERTS", "true").lower() in ("1", "true", "yes"),
             timestream_region=env.get(PREFIX + "TIMESTREAM_REGION", "").strip() or cls.timestream_region,
             timestream_lookback_s=get("TIMESTREAM_LOOKBACK_S", _positive_float, cls.timestream_lookback_s),
             timestream_backfill_s=get("TIMESTREAM_BACKFILL_S", _positive_float, cls.timestream_backfill_s),
@@ -162,6 +172,9 @@ class Settings:
             max_alerts=get("MAX_ALERTS", _positive_int, 1_000),
             max_query_range_s=get("MAX_QUERY_RANGE_S", _positive_float, 86_400.0),
             alerts_path=env.get(PREFIX + "ALERTS_PATH") or None,
+            sns_topic_arn=env.get(PREFIX + "SNS_TOPIC_ARN", "").strip() or None,
+            sns_notify_resolved=env.get(PREFIX + "SNS_NOTIFY_RESOLVED", "true").lower() in ("1", "true", "yes"),
+            sns_min_severity=get("SNS_MIN_SEVERITY", _severity, Severity.WARNING),
             api_host=env.get(PREFIX + "API_HOST", "127.0.0.1"),
             api_port=get("API_PORT", _positive_int, 8_000),
             thresholds=Thresholds.from_env(env),

@@ -5,4 +5,23 @@ certs/*.srl
 certs/local-backup/
 AWS/IotCore/.state.json
 AWS/IotCore/.venv/
+AWS/VM/.state.json
+AWS/VM/.venv
+AWS/VM/.venv.nosync/
+AWS/VM/.coverage
+AWS/Analyser/.venv
+AWS/Analyser/.venv.nosync/
+AWS/Analyser/data/
+AWS/Analyser/.coverage
+__pycache__/
 .ipynb_checkpoints/
+.venv/
+.venv 2/
+.pytest_cache/
+AWS/Analyser/tests/
+.mypy_cache/
+.ruff_cache/
+AWS/AnalyserSimple/tests/
+tests/
+.DS_Store
+doc/analyser.md

@@ -1,0 +1,8 @@
+.venv/
+data/
+notebooks/
+tests/
+**/__pycache__/
+.coverage
+.pytest_cache/
+.ipynb_checkpoints/

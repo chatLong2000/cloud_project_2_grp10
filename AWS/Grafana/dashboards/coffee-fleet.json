@@ -1,0 +1,1197 @@
+{
+  "uid": "coffee-fleet",
+  "title": "Machines à café — flotte",
+  "description": "Télémétrie et alertes du Scenario Analyzer (doc/adr/0001-grafana-datasource.md).",
+  "tags": [
+    "coffee",
+    "analyser"
+  ],
+  "timezone": "browser",
+  "editable": false,
+  "graphTooltip": 1,
+  "refresh": "10s",
+  "time": {
+    "from": "now-5m",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s",
+      "1m",
+      "5m"
+    ]
+  },
+  "schemaVersion": 39,
+  "version": 1,
+  "templating": {
+    "list": [
+      {
+        "name": "device",
+        "label": "Machine",
+        "type": "query",
+        "datasource": {
+          "type": "yesoreyeram-infinity-datasource",
+          "uid": "analyser-api"
+        },
+        "query": {
+          "queryType": "infinity",
+          "query": "",
+          "infinityQuery": {
+            "refId": "variable",
+            "datasource": {
+              "type": "yesoreyeram-infinity-datasource",
+              "uid": "analyser-api"
+            },
+            "type": "json",
+            "source": "url",
+            "parser": "backend",
+            "format": "table",
+            "url": "http://analyser:8000/api/devices",
+            "url_options": {
+              "method": "GET",
+              "data": "",
+              "params": []
+            },
+            "root_selector": "data",
+            "columns": [
+              {
+                "selector": "device_id",
+                "text": "device_id",
+                "type": "string"
+              }
+            ],
+            "filters": []
+          }
+        },
+        "refresh": 1,
+        "sort": 1,
+        "includeAll": false,
+        "multi": false,
+        "current": {
+          "text": "coffee-machine-01",
+          "value": "coffee-machine-01"
+        }
+      }
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Machines en ligne",
+      "description": "Machines ayant envoyé des données dans les 5 dernières minutes.",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "analyser-api"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "analyser-api"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "http://analyser:8000/api/devices",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "params": []
+          },
+          "root_selector": "meta",
+          "columns": [
+            {
+              "selector": "online",
+              "text": "Machines en ligne",
+              "type": "number"
+            }
+          ],
+          "filters": []
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#2a78d6",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "id": 1
+    },
+    {
+      "type": "stat",
+      "title": "Machines hors ligne",
+      "description": "Aucune donnée depuis plus de 5 min (device_offline).",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "analyser-api"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "analyser-api"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "http://analyser:8000/api/devices",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "params": []
+          },
+          "root_selector": "meta",
+          "columns": [
+            {
+              "selector": "offline",
+              "text": "Machines hors ligne",
+              "type": "number"
+            }
+          ],
+          "filters": []
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#0ca30c",
+                "value": null
+              },
+              {
+                "color": "#d03b3b",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "id": 2
+    },
+    {
+      "type": "stat",
+      "title": "Alertes ouvertes",
+      "description": "",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "analyser-api"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "analyser-api"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "http://analyser:8000/api/alerts",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "params": [
+              {
+                "key": "state",
+                "value": "open"
+              }
+            ]
+          },
+          "root_selector": "meta",
+          "columns": [
+            {
+              "selector": "open",
+              "text": "Alertes ouvertes",
+              "type": "number"
+            }
+          ],
+          "filters": []
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#0ca30c",
+                "value": null
+              },
+              {
+                "color": "#fab219",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "id": 3
+    },
+    {
+      "type": "stat",
+      "title": "Alertes critiques ouvertes",
+      "description": "",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "analyser-api"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "analyser-api"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "http://analyser:8000/api/alerts",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "params": [
+              {
+                "key": "state",
+                "value": "open"
+              }
+            ]
+          },
+          "root_selector": "meta",
+          "columns": [
+            {
+              "selector": "critical",
+              "text": "Alertes critiques ouvertes",
+              "type": "number"
+            }
+          ],
+          "filters": []
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#0ca30c",
+                "value": null
+              },
+              {
+                "color": "#d03b3b",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "id": 4
+    },
+    {
+      "type": "table",
+      "title": "État de la flotte",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "analyser-api"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "analyser-api"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "http://analyser:8000/api/devices",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "params": []
+          },
+          "root_selector": "data.$merge([$, {\"open_alerts\": $join(open_alerts, \", \"), \"active_faults\": $join(active_faults, \", \")}])",
+          "columns": [
+            {
+              "selector": "device_id",
+              "text": "Machine",
+              "type": "string"
+            },
+            {
+              "selector": "online",
+              "text": "En ligne",
+              "type": "string"
+            },
+            {
+              "selector": "device_status",
+              "text": "Statut",
+              "type": "string"
+            },
+            {
+              "selector": "temperature_c",
+              "text": "Température (°C)",
+              "type": "number"
+            },
+            {
+              "selector": "heap_free_bytes",
+              "text": "Heap libre (o)",
+              "type": "number"
+            },
+            {
+              "selector": "power_consumption_mw",
+              "text": "Puissance (mW)",
+              "type": "number"
+            },
+            {
+              "selector": "severity",
+              "text": "Sévérité",
+              "type": "string"
+            },
+            {
+              "selector": "open_alerts",
+              "text": "Alertes ouvertes",
+              "type": "string"
+            },
+            {
+              "selector": "active_faults",
+              "text": "Défauts transitoires",
+              "type": "string"
+            },
+            {
+              "selector": "last_seen",
+              "text": "Dernière donnée",
+              "type": "timestamp_epoch"
+            }
+          ],
+          "filters": []
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": [
+          {
+            "displayName": "Machine",
+            "desc": false
+          }
+        ]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Statut"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "off": {
+                        "color": "#8e8e8e",
+                        "index": 0
+                      },
+                      "booting": {
+                        "color": "#b0b0b0",
+                        "index": 1
+                      },
+                      "preheat": {
+                        "color": "#c3c2b7",
+                        "index": 2
+                      },
+                      "standby": {
+                        "color": "#0ca30c",
+                        "index": 3
+                      },
+                      "brewing": {
+                        "color": "#2a78d6",
+                        "index": 4
+                      },
+                      "updating": {
+                        "color": "#6250d6",
+                        "index": 5
+                      },
+                      "degraded": {
+                        "color": "#fab219",
+                        "index": 6
+                      },
+                      "error": {
+                        "color": "#d03b3b",
+                        "index": 7
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Sévérité"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "warning": {
+                        "color": "#fab219",
+                        "index": 0
+                      },
+                      "critical": {
+                        "color": "#d03b3b",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "En ligne"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "true": {
+                        "text": "oui",
+                        "color": "#0ca30c",
+                        "index": 0
+                      },
+                      "false": {
+                        "text": "hors ligne",
+                        "color": "#d03b3b",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "id": 5
+    },
+    {
+      "type": "row",
+      "title": "Machine : $device",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [],
+      "id": 6
+    },
+    {
+      "type": "timeseries",
+      "title": "Température",
+      "description": "Lignes : alerte précoce (consigne 94 °C + 4 °C) et seuil critique (112 °C).",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "analyser-api"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "analyser-api"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "http://analyser:8000/api/telemetry",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "params": [
+              {
+                "key": "from",
+                "value": "${__from}"
+              },
+              {
+                "key": "to",
+                "value": "${__to}"
+              },
+              {
+                "key": "device_id",
+                "value": "$device"
+              }
+            ]
+          },
+          "root_selector": "data",
+          "columns": [
+            {
+              "selector": "timestamp",
+              "text": "time",
+              "type": "timestamp_epoch"
+            },
+            {
+              "selector": "temperature_c",
+              "text": "Température",
+              "type": "number"
+            }
+          ],
+          "filters": []
+        }
+      ],
+      "options": {
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#2a78d6"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "spanNulls": 5000,
+            "showPoints": "never",
+            "thresholdsStyle": {
+              "mode": "line+area"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "#fab219",
+                "value": 98
+              },
+              {
+                "color": "#d03b3b",
+                "value": 112
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "id": 7
+    },
+    {
+      "type": "timeseries",
+      "title": "Heap libre",
+      "description": "Lignes : seuil critique (5 000 o) et seuil dégradé du firmware (15 000 o).",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "analyser-api"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 14,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "analyser-api"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "http://analyser:8000/api/telemetry",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "params": [
+              {
+                "key": "from",
+                "value": "${__from}"
+              },
+              {
+                "key": "to",
+                "value": "${__to}"
+              },
+              {
+                "key": "device_id",
+                "value": "$device"
+              }
+            ]
+          },
+          "root_selector": "data",
+          "columns": [
+            {
+              "selector": "timestamp",
+              "text": "time",
+              "type": "timestamp_epoch"
+            },
+            {
+              "selector": "heap_free_bytes",
+              "text": "Heap libre",
+              "type": "number"
+            }
+          ],
+          "filters": []
+        }
+      ],
+      "options": {
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#2a78d6"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "spanNulls": 5000,
+            "showPoints": "never",
+            "thresholdsStyle": {
+              "mode": "line+area"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#d03b3b",
+                "value": null
+              },
+              {
+                "color": "#fab219",
+                "value": 5000
+              },
+              {
+                "color": "transparent",
+                "value": 15000
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "id": 8
+    },
+    {
+      "type": "timeseries",
+      "title": "Puissance",
+      "description": "Consommation électrique de la machine.",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "analyser-api"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "analyser-api"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "http://analyser:8000/api/telemetry",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "params": [
+              {
+                "key": "from",
+                "value": "${__from}"
+              },
+              {
+                "key": "to",
+                "value": "${__to}"
+              },
+              {
+                "key": "device_id",
+                "value": "$device"
+              }
+            ]
+          },
+          "root_selector": "data",
+          "columns": [
+            {
+              "selector": "timestamp",
+              "text": "time",
+              "type": "timestamp_epoch"
+            },
+            {
+              "selector": "power_consumption_mw",
+              "text": "Puissance",
+              "type": "number"
+            }
+          ],
+          "filters": []
+        }
+      ],
+      "options": {
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "mwatt",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#2a78d6"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "spanNulls": 5000,
+            "showPoints": "never",
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "id": 9
+    },
+    {
+      "type": "state-timeline",
+      "title": "Statut",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "analyser-api"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 22,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "analyser-api"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "http://analyser:8000/api/telemetry",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "params": [
+              {
+                "key": "from",
+                "value": "${__from}"
+              },
+              {
+                "key": "to",
+                "value": "${__to}"
+              },
+              {
+                "key": "device_id",
+                "value": "$device"
+              }
+            ]
+          },
+          "root_selector": "data",
+          "columns": [
+            {
+              "selector": "timestamp",
+              "text": "time",
+              "type": "timestamp_epoch"
+            },
+            {
+              "selector": "device_status",
+              "text": "Statut",
+              "type": "string"
+            }
+          ],
+          "filters": []
+        }
+      ],
+      "options": {
+        "showValue": "never",
+        "mergeValues": true,
+        "rowHeight": 0.8,
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "off": {
+                  "color": "#8e8e8e",
+                  "index": 0
+                },
+                "booting": {
+                  "color": "#b0b0b0",
+                  "index": 1
+                },
+                "preheat": {
+                  "color": "#c3c2b7",
+                  "index": 2
+                },
+                "standby": {
+                  "color": "#0ca30c",
+                  "index": 3
+                },
+                "brewing": {
+                  "color": "#2a78d6",
+                  "index": 4
+                },
+                "updating": {
+                  "color": "#6250d6",
+                  "index": 5
+                },
+                "degraded": {
+                  "color": "#fab219",
+                  "index": 6
+                },
+                "error": {
+                  "color": "#d03b3b",
+                  "index": 7
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#8e8e8e"
+          }
+        },
+        "overrides": []
+      },
+      "id": 10
+    },
+    {
+      "type": "table",
+      "title": "Alertes (période affichée)",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "analyser-api"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 30,
+        "w": 24,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "analyser-api"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "http://analyser:8000/api/alerts",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "params": [
+              {
+                "key": "from",
+                "value": "${__from}"
+              },
+              {
+                "key": "to",
+                "value": "${__to}"
+              }
+            ]
+          },
+          "root_selector": "data",
+          "columns": [
+            {
+              "selector": "opened_at",
+              "text": "Ouverte",
+              "type": "timestamp_epoch"
+            },
+            {
+              "selector": "device_id",
+              "text": "Machine",
+              "type": "string"
+            },
+            {
+              "selector": "scenario",
+              "text": "Scénario",
+              "type": "string"
+            },
+            {
+              "selector": "severity",
+              "text": "Sévérité",
+              "type": "string"
+            },
+            {
+              "selector": "state",
+              "text": "État",
+              "type": "string"
+            },
+            {
+              "selector": "resolved_at",
+              "text": "Résolue",
+              "type": "timestamp_epoch"
+            },
+            {
+              "selector": "message",
+              "text": "Détail",
+              "type": "string"
+            }
+          ],
+          "filters": []
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": [
+          {
+            "displayName": "Ouverte",
+            "desc": true
+          }
+        ]
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Sévérité"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "warning": {
+                        "color": "#fab219",
+                        "index": 0
+                      },
+                      "critical": {
+                        "color": "#d03b3b",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "id": 11
+    }
+  ]
+}

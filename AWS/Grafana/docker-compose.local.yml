@@ -1,0 +1,51 @@
+# Analytics stack: Scenario Analyzer (file replay, or Timestream on the VM) + Grafana OSS (Infinity data source).
+# See README.md. Requires a replay dataset (AWS/Analyser: python -m analyser.generator) and a .env file.
+name: coffee-analytics
+
+services:
+  analyser:
+    build: ../Analyser
+    environment:
+      ANALYSER_SOURCE: ${ANALYSER_SOURCE:-file}  # timestream on the VM (AWS credentials from the instance role)
+      ANALYSER_REPLAY_PATH: /data/replay/batches.jsonl
+      ANALYSER_REPLAY_MODE: realtime
+      ANALYSER_REPLAY_START_OFFSET_S: ${REPLAY_START_OFFSET_S:-3600}
+      ANALYSER_POLL_INTERVAL_S: ${ANALYSER_POLL_INTERVAL_S:-10}
+      ANALYSER_ALERTS_PATH: /data/alerts/alerts.jsonl
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - ${REPLAY_DIR:-../Analyser/data/replay/ref}:/data/replay:ro
+      - analyser-alerts:/data/alerts
+    expose:
+      - "8000"  # internal network only: Grafana is the only published service
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana-oss:13.0.2
+    depends_on:
+      analyser:
+        condition: service_healthy
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in AWS/Grafana/.env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_PLUGINS_PREINSTALL_SYNC: yesoreyeram-infinity-datasource@4.1.1
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/dashboards/coffee-fleet.json
+    ports:
+      - "${GRAFANA_BIND:-127.0.0.1}:${GRAFANA_PORT:-3000}:3000"  # 0.0.0.0 on the VM (security group filters)
+    volumes:
+      - ./provisioning:/etc/grafana/provisioning:ro
+      - ./dashboards:/etc/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  analyser-alerts:
+  grafana-data:

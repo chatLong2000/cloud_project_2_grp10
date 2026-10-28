@@ -56,7 +56,7 @@ flowchart LR
   LBD -->|"Écriture par lots"| DDB
   
   DDB -->|"Lecture périodique<br/>(Fenêtre glissante)"| ANA
-  DDB -->|"Requêtes temps réel<br/>(5 dernières min)"| GRA
+  ANA -->|"API JSON (plugin Infinity)<br/>(5 dernières min)"| GRA
   ANA -->|"Écriture alertes / états"| DDB
   ANA -->|"Publication d'alertes"| SNS
   
@@ -81,7 +81,7 @@ flowchart LR
 | **Ingestion Cloud** | **AWS Lambda** `ingestor` | **FaaS** | Conteneur léger et *stateless* : déballe le lot MQTT et l'insère dans DynamoDB. Détecte uniquement les erreurs matérielles immédiates (bits d'erreur). | Très rapide et peu coûteux car aucun calcul lourd ni lecture d'historique n'y est effectué. |
 | **Stockage** | **Amazon DynamoDB** | **NoSQL (PaaS)** | Stocke la télémétrie (`Partition Key: device_id`, `Sort Key: timestamp`) avec un **TTL de 90 jours (3 mois)**, ainsi que la table des alertes. | Voir section 3 (*Pourquoi DynamoDB plutôt que Timestream ?*). |
 | **Analyse des scénarios & Silences** | **Scenario Analyzer** (Python sur VM EC2) | **IaaS** | Service externe à Lambda, tournant à côté de Grafana. Lit régulièrement DynamoDB pour détecter les patterns complexes (scénarios) et les machines muettes (`silent_device`). | Une Lambda ne peut pas s'auto-déclencher en l'absence de données et est mal adaptée à l'analyse d'historique lourd. Ce worker centralise toute l'intelligence métier. |
-| **Dashboard** | **Grafana OSS** (sur VM EC2) | **IaaS** | Affiche les données des **5 dernières minutes** par défaut (configurable) avec rafraîchissement automatique. | **AWS Managed Grafana** (9 $/éditeur/mois) est trop cher. **Grafana Cloud Free** bloque le plugin Enterprise DynamoDB. L'installation de Grafana OSS sur une VM EC2 (mutualisée avec l'Analyzer) est gratuite et sans limite. *(Grafana Cloud reste utilisable ponctuellement pour des tests).* |
+| **Dashboard** | **Grafana OSS** (sur VM EC2) | **IaaS** | Affiche les données des **5 dernières minutes** par défaut (configurable) avec rafraîchissement automatique. Lit l'**API JSON de l'Analyzer** via le plugin open source **Infinity** (télémétrie, état des machines, alertes). | **AWS Managed Grafana** (9 $/éditeur/mois) est trop cher. Le plugin DynamoDB de Grafana est réservé à **Grafana Enterprise** (indisponible en OSS) : l'Analyzer, seul lecteur de DynamoDB, sert donc sa fenêtre glissante à Grafana, sans lecture DynamoDB supplémentaire (voir `doc/adr/0001-grafana-datasource.md`). Grafana OSS sur la VM EC2 mutualisée avec l'Analyzer reste gratuit. |
 | **Alerting** | **Amazon SNS** | **PaaS** | Envoie les notifications (email/SMS) aux opérateurs lors de la détection d'un scénario critique. | Simple, découplé et quasi gratuit. |
 | **Logs & Audit** | **Amazon CloudWatch Logs** | **PaaS** | Centralise les logs des Lambdas, d'IoT Core et du Scenario Analyzer avec une **rétention configurée à 1 an (365 jours)**. | Service natif AWS. Permet de respecter l'obligation de conservation des logs sur 1 an. |
 
@@ -114,9 +114,7 @@ Contrairement aux **statuts** (`off`, `booting`, `preheat`, `standby`, `brewing`
 | **`thermal_runaway`** | Hausse continue de la température au-dessus de la consigne (`temp > setpoint + 4°C`) sur plusieurs mesures consécutives, quel que soit le statut (y compris pendant `updating`), ou activation du bit 0 (`overheat`). | Alerte SNS (WARNING puis CRITICAL) + inscription dans la table `alerts`. |
 | **`memory_leak_fota`** | Diminution progressive du *free heap* moyen lors des retours à l'état `standby` après une phase `updating` (tendance baissière calculée par régression/comparaison). | Alerte SNS (WARNING) avant le crash de la machine. |
 | **`out_of_memory`** | Chute critique du *free heap* sous le seuil minimal ou activation du bit 1 (`low_memory`) suivie d'un redémarrage (`booting`). | Alerte SNS (CRITICAL). |
-| **`silent_device`** | **Niveau 1 (Edge Docker) :** Si un port UART est muet > 15 s, l'Edge envoie une trame d'alerte dédiée.<br>
-
-<br>**Niveau 2 (Cloud Analyzer) :** Si aucune donnée n'est reçue en base depuis > 5 min (panne machine ou arrêt du conteneur Edge), la machine passe en état `offline`. | Alerte SNS (CRITICAL - Device Offline). |
+| **`silent_device`** | **Trou dans les données :** écart > 10 s entre deux mesures consécutives d'une machine, calculé sur les horodatages de mesure (indépendant du batching de l'Edge). Couvre les silences courts (30 à 120 s dans le simulateur).<br>**`device_offline` :** aucune donnée reçue depuis > 5 min (panne machine ou arrêt du conteneur Edge), vérifié à chaque cycle de l'Analyzer. L'Edge ne détecte pas les silences (voir `README.md`). | `silent_device` : alerte WARNING.<br>`device_offline` : alerte SNS (CRITICAL - Device Offline). |
 
 ---
 

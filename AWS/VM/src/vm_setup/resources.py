@@ -3,17 +3,25 @@ AWS resources of the Monitoring & Analytics VM, created idempotently.
 
 Every ensure_* function first looks the resource up (by name or tag) and only
 creates what is missing, so each notebook cell can be run again safely.
-Security choices: no inbound rule at all (access through SSM Session Manager),
-IMDSv2 only with a hop limit of 1 (containers cannot reach the instance
-credentials), encrypted gp3 volume, no SSH key, instance role limited to SSM
-plus reading the bundle and the Grafana password.
+Security choices: the only inbound rule is Grafana's port, from the CIDRs given
+in VmConfig.grafana_cidrs (none: access through an SSM Session Manager tunnel
+only), IMDSv2 only, encrypted gp3 volume, no SSH key, instance role limited to
+SSM plus reading the bundle, the Grafana password and the Timestream telemetry table.
+
+The IMDS hop limit is 2 so that the Analyser container (one hop behind the
+Docker bridge) gets the instance credentials to query Timestream. The Grafana
+container can then reach them too; this is accepted because the role only
+reads what Grafana already has (its own password, the shown telemetry) or
+holds no secret (the bundle).
 """
 
 import hashlib
+import ipaddress
 import json
 import logging
 import secrets
 import time
+import urllib.request
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any, NamedTuple
@@ -27,15 +35,20 @@ log = logging.getLogger("vm_setup")
 PROJECT_TAG = "cloud-project-2-grp10"
 AMI_PARAMETER = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
 SSM_MANAGED_POLICY = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-INLINE_POLICY_NAME = "coffee-vm-bundle-and-secret"
+INLINE_POLICY_NAME = "coffee-vm-bundle-and-secret"  # name kept so existing roles are updated, not duplicated
+IMDS_HOP_LIMIT = 2  # host + one Docker bridge hop: the Analyser container needs the role (see module doc)
 LIVE_STATES = ["pending", "running", "stopping", "stopped"]
 PROFILE_RETRIES = 10  # a new instance profile takes a few seconds to be usable by EC2
 PROFILE_RETRY_S = 6
 SG_DELETE_RETRIES = 12  # the network interface of a terminated instance is released asynchronously
 PENDING_COMMAND_STATES = {"Pending", "InProgress", "Delayed"}
+GRAFANA_PORT = 3000  # published by AWS/Grafana/docker-compose.local.yml
+CHECKIP_URL = "https://checkip.amazonaws.com"  # answers with the caller's public IPv4
+HTTP_TIMEOUT_S = 5
 
 Sleep = Callable[[float], None]
 Clock = Callable[[], float]
+Fetch = Callable[[str], str]
 
 
 class SetupError(RuntimeError):
@@ -54,6 +67,20 @@ class VmConfig:
     instance_type: str = "t3.small"
     volume_gb: int = 20
     bundle_key: str = "bundle/app.tar.gz"
+    timestream_database: str = "SdatawayIoTDB"  # written by the Ingestor Lambda, read by the Analyser
+    timestream_table: str = "telemetry"
+    grafana_cidrs: tuple[str, ...] = ()  # IPv4 sources allowed on Grafana's public port; empty: SSM tunnel only
+
+    @property
+    def grafana_public(self) -> bool:
+        return bool(self.grafana_cidrs)
+
+    @property
+    def timestream_table_arn(self) -> str:
+        return (
+            f"arn:aws:timestream:{self.region}:{self.account_id}"
+            f":database/{self.timestream_database}/table/{self.timestream_table}"
+        )
 
     @property
     def parameter_name(self) -> str:
@@ -197,6 +224,9 @@ def _inline_policy(cfg: VmConfig) -> dict:
         "Statement": [
             {"Effect": "Allow", "Action": "s3:GetObject", "Resource": f"arn:aws:s3:::{cfg.bucket}/{cfg.bundle_key}"},
             {"Effect": "Allow", "Action": "ssm:GetParameter", "Resource": cfg.parameter_arn},
+            {"Effect": "Allow", "Action": "timestream:Select", "Resource": cfg.timestream_table_arn},
+            # The Timestream SDK discovers its endpoint first; this action cannot be scoped to a resource.
+            {"Effect": "Allow", "Action": "timestream:DescribeEndpoints", "Resource": "*"},
         ],
     }
 
@@ -210,7 +240,7 @@ def ensure_instance_role(iam: Any, cfg: VmConfig) -> str:
         iam.create_role(
             RoleName=cfg.role_name,
             AssumeRolePolicyDocument=json.dumps(_trust_policy()),
-            Description="Coffee VM: SSM access, bundle download, Grafana password",
+            Description="Coffee VM: SSM access, bundle download, Grafana password, Timestream read",
             Tags=cfg.tag_list(),
         )
     iam.attach_role_policy(RoleName=cfg.role_name, PolicyArn=SSM_MANAGED_POLICY)
@@ -237,6 +267,36 @@ def default_vpc_id(ec2: Any) -> str:
     return vpcs[0]["VpcId"]
 
 
+def _checked_cidr(cidr: str) -> str:
+    """IPv4 network written with its prefix length and no host bits ("203.0.113.7/32", "0.0.0.0/0")."""
+    try:
+        network = ipaddress.ip_network(cidr, strict=True)
+    except ValueError:
+        network = None
+    if network is None or network.version != 4 or "/" not in cidr:
+        raise SetupError(f"invalid CIDR {cidr!r} in grafana_cidrs: expected an IPv4 network such as 203.0.113.7/32")
+    return str(network)
+
+
+def _grafana_permissions(cfg: VmConfig) -> list[dict]:
+    if not cfg.grafana_public:
+        return []
+    ranges = [{"CidrIp": _checked_cidr(cidr), "Description": "Grafana"} for cidr in cfg.grafana_cidrs]
+    return [{"IpProtocol": "tcp", "FromPort": GRAFANA_PORT, "ToPort": GRAFANA_PORT, "IpRanges": ranges}]
+
+
+def _rule_keys(permissions: Sequence[dict]) -> set[tuple]:
+    """One (protocol, from, to, source) per source, whatever its kind, to compare rule sets."""
+    keys = set()
+    for permission in permissions:
+        port = (permission.get("IpProtocol"), permission.get("FromPort"), permission.get("ToPort"))
+        keys |= {(*port, r["CidrIp"]) for r in permission.get("IpRanges", [])}
+        keys |= {(*port, r["CidrIpv6"]) for r in permission.get("Ipv6Ranges", [])}
+        keys |= {(*port, g.get("GroupId")) for g in permission.get("UserIdGroupPairs", [])}
+        keys |= {(*port, p["PrefixListId"]) for p in permission.get("PrefixListIds", [])}
+    return keys
+
+
 def _find_security_group(ec2: Any, cfg: VmConfig, vpc_id: str | None = None) -> dict | None:
     filters = [{"Name": "group-name", "Values": [cfg.security_group_name]}]
     if vpc_id:
@@ -246,20 +306,67 @@ def _find_security_group(ec2: Any, cfg: VmConfig, vpc_id: str | None = None) -> 
 
 
 def ensure_security_group(ec2: Any, cfg: VmConfig, vpc_id: str) -> str:
-    """Security group without any inbound rule (rules added by hand are removed)."""
+    """
+    Security group whose only inbound rule is Grafana's port from cfg.grafana_cidrs
+    (no rule at all when empty). Any other rule, e.g. added by hand, is removed.
+    """
+    wanted = _grafana_permissions(cfg)
     group = _find_security_group(ec2, cfg, vpc_id)
     if group is None:
         group_id = ec2.create_security_group(
             GroupName=cfg.security_group_name,
-            Description="Coffee VM: no inbound access, SSM Session Manager only",
+            Description="Coffee VM: Grafana port from allowed CIDRs only, SSM Session Manager",
             VpcId=vpc_id,
             TagSpecifications=[{"ResourceType": "security-group", "Tags": cfg.tag_list(Name=cfg.security_group_name)}],
         )["GroupId"]
+        current: list[dict] = []
+    else:
+        group_id, current = group["GroupId"], group["IpPermissions"]
+    if _rule_keys(current) == _rule_keys(wanted):
         return group_id
-    if group["IpPermissions"]:
-        ec2.revoke_security_group_ingress(GroupId=group["GroupId"], IpPermissions=group["IpPermissions"])
-        log.warning("removed inbound rules from %s", group["GroupId"])
-    return group["GroupId"]
+    if current:
+        ec2.revoke_security_group_ingress(GroupId=group_id, IpPermissions=current)
+        log.warning("removed inbound rules from %s", group_id)
+    if wanted:
+        ec2.authorize_security_group_ingress(GroupId=group_id, IpPermissions=wanted)
+        log.warning("%s: Grafana port %d open to %s", group_id, GRAFANA_PORT, ", ".join(cfg.grafana_cidrs))
+    return group_id
+
+
+# --- Public access to Grafana --------------------------------------------------------------
+
+
+def _http_get(url: str) -> str:
+    with urllib.request.urlopen(url, timeout=HTTP_TIMEOUT_S) as response:
+        return response.read().decode()
+
+
+def caller_public_cidr(fetch: Fetch = _http_get) -> str:
+    """Public IPv4 of this machine as a /32, to open Grafana to it only."""
+    answer = fetch(CHECKIP_URL).strip()
+    try:
+        address = ipaddress.IPv4Address(answer)
+    except ValueError:
+        raise SetupError(f"unexpected answer from {CHECKIP_URL} for the public IP: {answer[:80]!r}") from None
+    return f"{address}/32"
+
+
+def public_ip(ec2: Any, instance_id: str) -> str:
+    """Current public IPv4 of the instance; it changes after every stop/start."""
+    instance = ec2.describe_instances(InstanceIds=[instance_id])["Reservations"][0]["Instances"][0]
+    address = instance.get("PublicIpAddress")
+    if not address:
+        raise SetupError(f"{instance_id} has no public IP: it must be running, in a subnet that assigns one")
+    return address
+
+
+def grafana_reachable(base_url: str, fetch: Fetch = _http_get) -> bool:
+    """True when Grafana answers its health check at base_url from this machine."""
+    try:
+        health = json.loads(fetch(f"{base_url}/api/health"))
+    except (OSError, ValueError):  # refused, timed out (security group), or not JSON
+        return False
+    return isinstance(health, dict) and health.get("database") == "ok"
 
 
 # --- Instance ----------------------------------------------------------------------------
@@ -283,6 +390,9 @@ def find_instance(ec2: Any, cfg: VmConfig) -> dict | None:
     return instances[0] if instances else None
 
 
+_METADATA_OPTIONS = {"HttpTokens": "required", "HttpEndpoint": "enabled", "HttpPutResponseHopLimit": IMDS_HOP_LIMIT}
+
+
 def _launch_request(cfg: VmConfig, ami_id: str, security_group_id: str, instance_profile_arn: str, user_data: str):
     return {
         "ImageId": ami_id,
@@ -292,7 +402,7 @@ def _launch_request(cfg: VmConfig, ami_id: str, security_group_id: str, instance
         "SecurityGroupIds": [security_group_id],
         "IamInstanceProfile": {"Arn": instance_profile_arn},
         "UserData": user_data,
-        "MetadataOptions": {"HttpTokens": "required", "HttpEndpoint": "enabled", "HttpPutResponseHopLimit": 1},
+        "MetadataOptions": dict(_METADATA_OPTIONS),
         "BlockDeviceMappings": [
             {
                 "DeviceName": "/dev/xvda",
@@ -350,11 +460,15 @@ def ensure_instance(
 
 
 def _realign_instance(ec2: Any, instance: dict, security_group_id: str, instance_profile_arn: str) -> None:
-    """Puts back the expected security group and instance profile (e.g. after a partial cleanup)."""
+    """Puts back the expected security group, metadata options and instance profile (e.g. after a partial cleanup)."""
     instance_id = instance["InstanceId"]
     if {g["GroupId"] for g in instance.get("SecurityGroups", [])} != {security_group_id}:
         ec2.modify_instance_attribute(InstanceId=instance_id, Groups=[security_group_id])
         log.warning("%s: security group reset to %s", instance_id, security_group_id)
+    current = instance.get("MetadataOptions", {})
+    if any(current.get(key) != value for key, value in _METADATA_OPTIONS.items()):
+        ec2.modify_instance_metadata_options(InstanceId=instance_id, **_METADATA_OPTIONS)
+        log.warning("%s: metadata options reset to %s", instance_id, _METADATA_OPTIONS)
     if instance.get("IamInstanceProfile", {}).get("Arn") == instance_profile_arn:
         return
     associations = ec2.describe_iam_instance_profile_associations(

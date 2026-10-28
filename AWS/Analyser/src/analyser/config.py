@@ -7,18 +7,28 @@ value fails fast at startup, naming the offending variable.
 """
 
 import os
+import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, fields
 from enum import StrEnum
 from typing import Any, TypeVar
 
 T = TypeVar("T")
+E = TypeVar("E", bound=StrEnum)
 
 PREFIX = "ANALYSER_"
+
+# Timestream database and table names; they are quoted into SQL, so no quote may get through.
+TIMESTREAM_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{3,256}$")
 
 
 class ConfigError(ValueError):
     pass
+
+
+class SourceKind(StrEnum):
+    FILE = "file"  # batches.jsonl replay (local, notebooks, tests)
+    TIMESTREAM = "timestream"  # Amazon Timestream table written by the Ingestor Lambda (AWS)
 
 
 class ReplayMode(StrEnum):
@@ -54,12 +64,26 @@ def _positive_int(name: str, raw: str) -> int:
     return value
 
 
-def _replay_mode(name: str, raw: str) -> ReplayMode:
-    try:
-        return ReplayMode(raw.strip().lower())
-    except ValueError:
-        allowed = ", ".join(m.value for m in ReplayMode)
-        raise ConfigError(f"{name}={raw!r} must be one of: {allowed}") from None
+def _choice(enum: type[E]) -> Callable[[str, str], E]:
+    def parse(name: str, raw: str) -> E:
+        try:
+            return enum(raw.strip().lower())
+        except ValueError:
+            allowed = ", ".join(m.value for m in enum)
+            raise ConfigError(f"{name}={raw!r} must be one of: {allowed}") from None
+
+    return parse
+
+
+_replay_mode = _choice(ReplayMode)
+_source_kind = _choice(SourceKind)
+
+
+def _timestream_name(name: str, raw: str) -> str:
+    value = raw.strip()
+    if not TIMESTREAM_NAME_PATTERN.match(value):
+        raise ConfigError(f"{name}={raw!r} must be 3-256 letters, digits, '_', '.' or '-'")
+    return value
 
 
 @dataclass(frozen=True)
@@ -92,7 +116,13 @@ class Thresholds:
 
 @dataclass(frozen=True)
 class Settings:
-    replay_path: str
+    replay_path: str = ""  # required when source is FILE
+    source: SourceKind = SourceKind.FILE
+    timestream_database: str = "SdatawayIoTDB"
+    timestream_table: str = "telemetry"
+    timestream_region: str = "us-east-1"
+    timestream_lookback_s: float = 600.0  # the edge can deliver a batch up to ~5 min late
+    timestream_backfill_s: float = 900.0  # history read on the first fetch, after a (re)start
     replay_mode: ReplayMode = ReplayMode.INSTANT
     replay_start_offset_s: float = 0.0
     poll_interval_s: float = 30.0
@@ -107,16 +137,24 @@ class Settings:
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> "Settings":
         env = os.environ if env is None else env
-        replay_path = env.get(PREFIX + "REPLAY_PATH", "").strip()
-        if not replay_path:
-            raise ConfigError(f"{PREFIX}REPLAY_PATH is required (path to a batches.jsonl file)")
 
         def get(name: str, parse: Callable[[str, str], T], default: T) -> T:
             key = PREFIX + name
             return parse(key, env[key]) if key in env else default
 
+        source = get("SOURCE", _source_kind, SourceKind.FILE)
+        replay_path = env.get(PREFIX + "REPLAY_PATH", "").strip()
+        if source is SourceKind.FILE and not replay_path:
+            raise ConfigError(f"{PREFIX}REPLAY_PATH is required (path to a batches.jsonl file)")
+
         return cls(
             replay_path=replay_path,
+            source=source,
+            timestream_database=get("TIMESTREAM_DATABASE", _timestream_name, cls.timestream_database),
+            timestream_table=get("TIMESTREAM_TABLE", _timestream_name, cls.timestream_table),
+            timestream_region=env.get(PREFIX + "TIMESTREAM_REGION", "").strip() or cls.timestream_region,
+            timestream_lookback_s=get("TIMESTREAM_LOOKBACK_S", _positive_float, cls.timestream_lookback_s),
+            timestream_backfill_s=get("TIMESTREAM_BACKFILL_S", _positive_float, cls.timestream_backfill_s),
             replay_mode=get("REPLAY_MODE", _replay_mode, ReplayMode.INSTANT),
             replay_start_offset_s=get("REPLAY_START_OFFSET_S", _non_negative_float, 0.0),
             poll_interval_s=get("POLL_INTERVAL_S", _positive_float, 30.0),

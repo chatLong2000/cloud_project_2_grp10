@@ -4,6 +4,8 @@ Entry point: analysis loop + JSON API in one process.
     ANALYSER_REPLAY_PATH=../Analyser/data/replay/ref/batches.jsonl ANALYSER_REPLAY_MODE=realtime \
     uv run python -m analyser
 
+    ANALYSER_SOURCE=timestream uv run python -m analyser    # AWS credentials from the usual chain
+
 All settings come from ANALYSER_* environment variables (see config.py).
 """
 
@@ -15,16 +17,35 @@ import uvicorn
 
 from analyser.alerts import AlertSink, JsonlAlertSink, LogAlertSink
 from analyser.api import AnalyserService, create_app
-from analyser.config import ConfigError, Settings
-from analyser.source import FileReplaySource
+from analyser.config import ConfigError, Settings, SourceKind
+from analyser.source import FileReplaySource, TelemetrySource
+from analyser.timestream import TimestreamSource, query_client
 
 log = logging.getLogger("analyser")
 
 EXIT_CONFIG_ERROR = 2
 
 
+def build_source(settings: Settings) -> TelemetrySource:
+    if settings.source is SourceKind.TIMESTREAM:
+        return TimestreamSource(
+            query_client(settings.timestream_region),
+            settings.timestream_database,
+            settings.timestream_table,
+            settings.timestream_lookback_s,
+            settings.timestream_backfill_s,
+        )
+    return FileReplaySource(settings.replay_path, settings.replay_mode, settings.replay_start_offset_s)
+
+
+def describe_source(settings: Settings) -> str:
+    if settings.source is SourceKind.TIMESTREAM:
+        return f"timestream={settings.timestream_database}.{settings.timestream_table} ({settings.timestream_region})"
+    return f"replay={settings.replay_path} mode={settings.replay_mode}"
+
+
 def build_service(settings: Settings) -> AnalyserService:
-    source = FileReplaySource(settings.replay_path, settings.replay_mode, settings.replay_start_offset_s)
+    source = build_source(settings)
     sinks: list[AlertSink] = [LogAlertSink()]
     if settings.alerts_path:
         sinks.append(JsonlAlertSink(settings.alerts_path))
@@ -45,9 +66,8 @@ def main() -> None:
         sys.exit(EXIT_CONFIG_ERROR)
 
     log.info(
-        "analyser started: replay=%s mode=%s poll=%.0fs api=%s:%d",
-        settings.replay_path,
-        settings.replay_mode,
+        "analyser started: %s poll=%.0fs api=%s:%d",
+        describe_source(settings),
         settings.poll_interval_s,
         settings.api_host,
         settings.api_port,

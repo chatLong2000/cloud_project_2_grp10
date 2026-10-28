@@ -6,7 +6,9 @@ user_data()        first boot (cloud-init): Docker, plus the docker compose and
                    published SHA-256. Amazon Linux 2023 ships the AWS CLI.
 deploy_commands()  SSM Run Command: fetch the bundle from S3, write the
                    Grafana .env with the password read on the VM from
-                   Parameter Store (never sent through SSM or printed), then
+                   Parameter Store (never sent through SSM or printed) and
+                   the Analyser source (Timestream by default) and the
+                   Grafana bind address (all interfaces when public), then
                    docker compose up.
 status_commands()  SSM Run Command: container health and Grafana /api/health,
                    parsed by parse_status().
@@ -34,6 +36,7 @@ COMPOSE = "docker compose -f docker-compose.local.yml"
 SERVICES = ("analyser", "grafana")
 GRAFANA_MARKER = "---grafana-health---"
 READY_TIMEOUT_S = 600  # how long a deployment waits for the first-boot script
+LOOPBACK_BIND, PUBLIC_BIND = "127.0.0.1", "0.0.0.0"  # host address Grafana's port is published on
 
 PLUGINS_DIR = "/usr/local/lib/docker/cli-plugins"
 _PLUGINS = (
@@ -58,6 +61,7 @@ _PATTERNS = {
     "region": r"[a-z]{2}(-[a-z]+)+-\d",
     "sha256": r"[0-9a-f]{64}",
     "account_id": r"\d{12}",
+    "analyser_source": r"file|timestream",
 }
 
 
@@ -98,11 +102,20 @@ def deploy_commands(
     parameter_name: str,
     region: str,
     restart_replay: bool = False,
+    analyser_source: str = "timestream",
+    public: bool = False,
 ) -> list[str]:
-    """`sha256` of the uploaded bundle: a bundle replaced in S3 after the upload is refused."""
+    """
+    `sha256` of the uploaded bundle: a bundle replaced in S3 after the upload is refused.
+    `analyser_source`: "timestream" (the AWS table) or "file" (the replay shipped in the bundle).
+    `public`: Grafana listens on every interface (reachable through the security group's
+    public port) instead of the loopback only (SSM tunnel).
+    """
     bucket, key, sha256 = _checked("bucket", bucket), _checked("key", key), _checked("sha256", sha256)
     account_id, region = _checked("account_id", account_id), _checked("region", region)
     parameter_name = _checked("parameter_name", parameter_name)
+    analyser_source = _checked("analyser_source", analyser_source)
+    grafana_bind = PUBLIC_BIND if public else LOOPBACK_BIND
     bundle, staging = f"{BASE_DIR}/bundle.tar.gz", f"{APP_DIR}.new"
     wait_boot = f"until [ -f {READY_MARKER} ]; do [ -f {FAILED_MARKER} ] && exit 3; sleep 5; done"
     commands = [
@@ -122,6 +135,8 @@ def deploy_commands(
         f" --query Parameter.Value --output text --region {region})",
         f"printf 'GRAFANA_ADMIN_PASSWORD=%s\\n' \"$password\" > {staging}/AWS/Grafana/.env",
         "unset password",
+        f"echo ANALYSER_SOURCE={analyser_source} >> {staging}/AWS/Grafana/.env",
+        f"echo GRAFANA_BIND={grafana_bind} >> {staging}/AWS/Grafana/.env",
         # Synced in place, not swapped: the containers' bind mounts keep pointing at live directories.
         f"rsync -a --delete {staging}/ {APP_DIR}/ && rm -rf {staging}",
         f"cd {GRAFANA_DIR}",

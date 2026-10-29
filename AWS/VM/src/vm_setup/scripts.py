@@ -143,6 +143,7 @@ def deploy_commands(
         f"echo ANALYSER_SOURCE={analyser_source} >> {staging}/AWS/Grafana/.env",
         f"echo GRAFANA_BIND={grafana_bind} >> {staging}/AWS/Grafana/.env",
         f"echo ANALYSER_CLOUDWATCH_ENABLED={'true' if cloudwatch_enabled else 'false'} >> {staging}/AWS/Grafana/.env",
+        f"echo ANALYSER_WINDOW_S=28800 >> {staging}/AWS/Grafana/.env",
     ]
     if sns_topic_arn:
         commands.append(f"echo ANALYSER_SNS_TOPIC_ARN={_checked('sns_topic_arn', sns_topic_arn)} >> {staging}/AWS/Grafana/.env")

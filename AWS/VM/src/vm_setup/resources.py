@@ -63,7 +63,7 @@ class CommandError(SetupError):
 class VmConfig:
     region: str
     account_id: str
-    prefix: str = "coffee-vm"
+    prefix: str = "coffee-vm-grp10"
     instance_type: str = "t3.small"
     volume_gb: int = 20
     bundle_key: str = "bundle/app.tar.gz"
@@ -406,6 +406,13 @@ def find_instance(ec2: Any, cfg: VmConfig) -> dict | None:
         {"Name": "instance-state-name", "Values": LIVE_STATES},
     ]
     instances = [i for r in ec2.describe_instances(Filters=filters)["Reservations"] for i in r["Instances"]]
+    if not instances:
+        # Fallback to tag:Name only in case tag:Project was not applied
+        filters_fallback = [
+            {"Name": "tag:Name", "Values": [cfg.instance_name]},
+            {"Name": "instance-state-name", "Values": LIVE_STATES},
+        ]
+        instances = [i for r in ec2.describe_instances(Filters=filters_fallback)["Reservations"] for i in r["Instances"]]
     if len(instances) > 1:
         ids = ", ".join(i["InstanceId"] for i in instances)
         raise SetupError(f"several instances are tagged {cfg.instance_name}: {ids}; terminate the extra ones")

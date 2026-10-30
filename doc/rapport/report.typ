@@ -138,7 +138,7 @@ List of tasks realised within the project, their concrete outcomes, and student 
   ),
   [1. Initial Architecture Definition],
   [Designed the end-to-end cloud pipeline (`ESP32 → UART → Edge → MQTT → IoT Core → Lambda → Timestream → VM/Grafana/Analyzer → SNS/CloudWatch`) meeting SDATAWAY constraints and SLAs (< 5 min latency).],
-  [#text(fill: luma(110))[To be assigned]],
+  [#text(fill: luma(0))[All three students]],
 
   [2. Database Technology Selection & Trade-Off],
   [Researched and benchmarked storage options (Amazon Timestream vs. DynamoDB, InfluxDB), establishing the multi-measure schema and 3-month cost/sizing model (~$20–$35/month).],
@@ -146,15 +146,15 @@ List of tasks realised within the project, their concrete outcomes, and student 
 
   [3. Coffee Machine Fleet Simulation],
   [Containerized 50 concurrent ESP32 simulators generating 8-field CSV telemetry frames (0.5 Hz) over `socat` virtual serial PTY channels.],
-  [#text(fill: luma(110))[To be assigned]],
+  [#text(fill: luma(0))[Nathan Coudray]],
 
   [4. Edge Gateway (Serial, Buffer & MQTT)],
   [Developed multi-threaded Docker gateway reading serial streams, validating CSV metrics, buffering in SQLite (WAL mode, store-and-forward), and publishing MQTT batches ($<= 60$ s).],
-  [#text(fill: luma(110))[To be assigned]],
+  [#text(fill: luma(0))[Nathan Coudray]],
 
   [5. AWS IoT Core Ingestion & CloudWatch],
   [Configured managed IoT Core broker, X.509 mutual TLS authentication, topic routing rules (`coffee-GRP10/+/batch`), and broker connection logging in CloudWatch.],
-  [#text(fill: luma(110))[To be assigned]],
+  [#text(fill: luma(0))[Nathan Coudray]],
 
   [6. AWS Lambda Ingestor Component],
   [Built and deployed stateless Python FaaS `ingestor` unpacking incoming MQTT batches and inserting records via the Timestream `WriteRecords` batch API (up to 100 records/call).],

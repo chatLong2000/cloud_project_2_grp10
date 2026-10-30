@@ -137,7 +137,7 @@ List of tasks realised within the project, their concrete outcomes, and student 
     [*Tasks*], [*Outcome*], [*Students involved*]
   ),
   [1. Initial Architecture Definition],
-  [Designed the end-to-end cloud pipeline (`ESP32 → UART → Edge → MQTT → IoT Core → Lambda → Timestream → VM/Grafana/Analyzer → SNS/CloudWatch`) meeting SDATAWAY constraints and SLAs (< 5 min latency).],
+  [Designed the end-to-end cloud pipeline (`ESP32 -> UART -> Edge -> MQTT -> IoT Core -> Lambda -> Timestream -> VM/Grafana/Analyzer -> SNS/CloudWatch`) meeting SDATAWAY constraints and SLAs (< 5 min latency).],
   [#text(fill: luma(0))[All three students]],
 
   [2. Database Technology Selection & Trade-Off],

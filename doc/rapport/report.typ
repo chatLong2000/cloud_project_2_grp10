@@ -141,7 +141,7 @@ List of tasks realised within the project, their concrete outcomes, and student 
   [#text(fill: luma(0))[All three students]],
 
   [2. Database Technology Selection & Trade-Off],
-  [Researched and benchmarked storage options (Amazon Timestream vs. DynamoDB, InfluxDB), establishing the multi-measure schema and 3-month cost/sizing model (~$20–$35/month).],
+  [Researched and benchmarked storage options (Amazon Timestream vs. DynamoDB, InfluxDB), establishing the multi-measure schema and 3-month cost/sizing model (\$20–\$35/month).],
   [Basile Gasser],
 
   [3. Coffee Machine Fleet Simulation],
@@ -149,7 +149,7 @@ List of tasks realised within the project, their concrete outcomes, and student 
   [#text(fill: luma(0))[Nathan Coudray]],
 
   [4. Edge Gateway (Serial, Buffer & MQTT)],
-  [Developed multi-threaded Docker gateway reading serial streams, validating CSV metrics, buffering in SQLite (WAL mode, store-and-forward), and publishing MQTT batches ($<= 60$ s).],
+  [Developed multi-threaded Docker gateway reading serial streams, validating CSV metrics, buffering in SQLite (WAL mode, store-and-forward), and publishing MQTT batches (\$<= 60\$ s).],
   [#text(fill: luma(0))[Nathan Coudray]],
 
   [5. AWS IoT Core Ingestion & CloudWatch],
@@ -178,10 +178,10 @@ List of tasks realised within the project, their concrete outcomes, and student 
 
   [11. Demonstration Video],
   [Recorded and edited the platform video demonstration showcasing telemetry generation, real-time edge batching, cloud storage, anomaly detection, and Grafana dashboarding.],
-  [#text(fill: luma(110))[To be assigned]],
+  [All three students],
 
   [12. Project Report (Typst Documentation)],
   [Authored the 2-page project documentation in Typst according to the template, detailing architecture, component roles, cloud deployment models, and task breakdown.],
-  [Basile Gasser],
+  [All three students],
 )
 ]

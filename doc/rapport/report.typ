@@ -148,7 +148,7 @@ List of tasks realised within the project, their concrete outcomes, and student 
   [#text(fill: luma(0))[Nathan Coudray]],
 
   [4. Edge Gateway (Serial, Buffer & MQTT)],
-  [Developed multi-threaded Docker gateway reading serial streams, validating CSV metrics, buffering in SQLite (WAL mode, store-and-forward), and publishing MQTT batches (\$<= 60\$ s).],
+  [Developed multi-threaded Docker gateway reading serial streams, validating CSV metrics, buffering in SQLite (WAL mode, store-and-forward), and publishing MQTT batches ($<= 60$ s).],
   [#text(fill: luma(0))[Nathan Coudray]],
 
   [5. AWS IoT Core Ingestion & CloudWatch],

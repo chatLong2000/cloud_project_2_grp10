@@ -128,10 +128,10 @@ List of tasks realised within the project, their concrete outcomes, and student 
 
 #align(center)[
 #table(
-  columns: (2.1fr, 4.5fr, 1.9fr),
+  columns: (2fr, 5fr, 1.6fr),
   stroke: (x, y) => if y == 0 { (bottom: 1.2pt + rgb("#1e293b"), top: 0.6pt + rgb("#cbd5e1")) } else { 0.4pt + rgb("#e2e8f0") },
   fill: (col, row) => if row == 0 { rgb("#f1f5f9") } else if calc.even(row) { rgb("#f8fafc") } else { none },
-  inset: (x: 4.5pt, y: 3.2pt),
+  inset: (x: 4.5pt, y: 2.6pt),
   align: (col, row) => if row == 0 { center + horizon } else if col == 2 { center + horizon } else { left + horizon },
   table.header(
     [*Tasks*], [*Outcome*], [*Students involved*]
@@ -164,23 +164,35 @@ List of tasks realised within the project, their concrete outcomes, and student 
   [Automated provisioning of database `SdatawayIoTDB` with `telemetry` and `alerts` tables, configuring lifecycle retention (24h Memory Store, 90d Magnetic Store).],
   [Basile Gasser],
 
-  [8. Monitoring VM (Grafana OSS & Scenario Analyzer)],
-  [Deployed EC2 VM (`t3.small`) hosting Docker Compose stack with Scenario Analyzer (sliding-window detection of thermal runaway, leaks, OOM, silences) and Grafana OSS 13.0 dashboards.],
-  [#text(fill: luma(110))[To be assigned]],
+  [8. Scenario Analyzer (Detection Engine)],
+  [Python worker querying Timestream with stateful per-machine detectors (thermal runaway, leak, OOM, silent > 5 min) and a JSON API for Grafana.],
+  [Thoma Chalon],
 
-  [9. Amazon SNS Alerting System],
+  [9. Detector Validation],
+  [Seeded replay generator with ground-truth fault log, precision/recall scoring per scenario and Jupyter notebooks for threshold tuning; runs without AWS.],
+  [Thoma Chalon],
+
+  [10. Grafana Dashboard],
+  [Infinity datasource and fleet dashboard provisioned as code (health, alerts, per-machine drill-down); same Compose stack locally and on the VM.],
+  [Thoma Chalon],
+
+  [11. Monitoring VM Provisioning (boto3)],
+  [Notebook automating the EC2 `t3.small` deployment: instance profile, Security Group (port 3000), SSM, code bundle, redeploy, teardown.],
+  [Thoma Chalon],
+
+  [12. Amazon SNS Alerting System],
   [Provisioned topic `GRP10-SdatawayAlertsTopic` with email/SMS subscriptions and integrated the alert dispatching mechanism in the Scenario Analyzer for critical fault notifications.],
   [Basile Gasser],
 
-  [10. CloudWatch Logging for DB & Analyzer],
+  [13. CloudWatch Logging for DB & Analyzer],
   [Implemented centralized CloudWatch logging for Timestream ingestion tracking and Scenario Analyzer application logs, enforcing the mandatory 365-day (1-year) retention policy.],
   [Basile Gasser],
 
-  [11. Demonstration Video],
+  [14. Demonstration Video],
   [Recorded and edited the platform video demonstration showcasing telemetry generation, real-time edge batching, cloud storage, anomaly detection, and Grafana dashboarding.],
   [All three students],
 
-  [12. Project Report (Typst Documentation)],
+  [15. Project Report (Typst Documentation)],
   [Authored the 2-page project documentation in Typst according to the template, detailing architecture, component roles, cloud deployment models, and task breakdown.],
   [All three students],
 )

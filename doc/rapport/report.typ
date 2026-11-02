@@ -53,11 +53,10 @@
   [*Project :*], [Real-Time IoT Device Monitoring & Cloud Dashboarding Platform],
   [*Group :*], [Group 10],
   [*Students :*], [Nathan Coudray, Thoma Chalon, Basile Gasser],
-  [*Git URL (if applicable) :*], [#link("https://github.com/chatLong2000/cloud_project_2_grp10")[https://github.com/chatLong2000/cloud_project_2_grp10]],
+  [*Git URL (if applicable) :*], [#link("https://github.com/chatLong2000/cloud_project_2_grp10")],
   [*Link to a video :*], [
     // Video Link Placeholder - replace with your final link
-    #link("https://youtu.be/placeholder")[https://youtu.be/demo-video-link-placeholder]
-    #text(size: 7.5pt, fill: rgb("#b91c1c"))[(Placeholder — insert your video link here)]
+    #link("https://www.swisstransfer.com/dl/01a19cf2-0be2-71b8-b045-973622f74457")
   ],
 )
 
